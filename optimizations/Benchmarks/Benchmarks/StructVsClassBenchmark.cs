@@ -34,7 +34,7 @@ public class C
 
 	#endregion
 }
-public struct S
+public record struct S
 {
 	public int N;
 	public string Str;
