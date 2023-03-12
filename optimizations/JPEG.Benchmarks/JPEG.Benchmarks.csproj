@@ -18,6 +18,7 @@
     </ItemGroup>
 
     <ItemGroup>
+      <ProjectReference Include="..\JPEG.Solved\JPEG.Solved.csproj" />
       <ProjectReference Include="..\JPEG\JPEG.csproj" />
     </ItemGroup>
 
