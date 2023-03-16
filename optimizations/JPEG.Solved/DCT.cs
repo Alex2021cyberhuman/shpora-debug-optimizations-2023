@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Runtime.CompilerServices;
+using System.Threading.Tasks;
 using JPEG.Solved.Utilities;
 
 namespace JPEG.Solved;
@@ -13,16 +14,29 @@ public class DCT
         var width = input.GetLength(1);
         var coeffs = new float[width, height];
 
-        MathEx.LoopByTwoVariables(0, width, 0, height, (
-            u,
-            v) =>
-        {
-            var sum = MathEx.SumByTwoVariables(0, width, 0, height, (
-                x,
-                y) => BasisFunction(input[x, y], u, v, x, y, height, width));
 
-            coeffs[u, v] = sum * Beta(height, width) * Alpha(u) * Alpha(v);
-        });
+        for (var u = 0; u < height; u++)
+        {
+            for (var v = 0; v < width; v++)
+            {
+                var sum = 0f;
+                for (var y = 0; y < height; y++)
+                {
+                    for (var x = 0; x < width; x++)
+                    {
+                        sum += BasisFunction(input[x, y], u, v, x, y, height,
+                            width);
+                    }
+                }
+                //
+                // var sum = MathEx.SumByTwoVariables(0, width, 0, height, (
+                //     x,
+                //     y) => BasisFunction(input[x, y], u, v, x, y, height,
+                //     width));
+
+                coeffs[u, v] = sum * Beta(height, width) * Alpha(u) * Alpha(v);
+            }
+        }
 
         return coeffs;
     }
@@ -31,23 +45,33 @@ public class DCT
         float[,] coeffs,
         float[,] output)
     {
-        var lengthColumns = coeffs.GetLength(1);
-        var lengthLines = coeffs.GetLength(0);
-        for (var y = 0; y < lengthLines; y++)
+        var width = coeffs.GetLength(1);
+        var height = coeffs.GetLength(0);
+        for (var y = 0; y < height; y++)
         {
-            for (var x = 0; x < lengthColumns; x++)
+            for (var x = 0; x < width; x++)
             {
-                var sum = MathEx.SumByTwoVariables(0, lengthColumns, 0,
-                    lengthLines, (
-                            u,
-                            v) => BasisFunction(a: coeffs[u, v], u: u, v: v,
-                                      x: x,
-                                      y: y, height: lengthLines,
-                                      width: lengthColumns) *
-                                  Alpha(u) *
-                                  Alpha(v));
+                var sum = 0f;
+                for (var v = 0; v < height; v++)
+                {
+                    for (var u = 0; u < width; u++)
+                    {
+                        sum += BasisFunction(a: coeffs[u, v], u: u, v: v, x: x,
+                                   y: y,
+                                   height: height, width: width) *
+                               Alpha(u) *
+                               Alpha(v);
+                    }
+                }
+                // var sum = MathEx.SumByTwoVariables(0, width, 0, height, (
+                //         u,
+                //         v) => BasisFunction(a: coeffs[u, v], u: u, v: v, x: x,
+                //                   y: y,
+                //                   height: height, width: width) *
+                //               Alpha(u) *
+                //               Alpha(v));
 
-                output[x, y] = sum * Beta(lengthLines, lengthColumns);
+                output[x, y] = sum * Beta(height, width);
             }
         }
     }

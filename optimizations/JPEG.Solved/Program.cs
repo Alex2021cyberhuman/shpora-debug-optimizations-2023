@@ -1,12 +1,13 @@
 ﻿using System;
 using System.Diagnostics;
+using System.Linq;
 using JPEG;
 using JPEG.Solved.Processor;
 
 Console.WriteLine(nint.Size == 8 ? "64-bit version" : "32-bit version");
 var processor = BoostedJpegProcessor.Init;
 var sw = Stopwatch.StartNew();
-const string imagePath = @"sample.bmp";
+var imagePath = args.ElementAtOrDefault(0) ??  @"sample.bmp";
 // var imageName = "Big_Black_River_Railroad_Bridge.bmp";
 var compressedImagePath = imagePath +
                           ".compressed." +
