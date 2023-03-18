@@ -18,10 +18,10 @@ internal class Program
 			var compressedImagePath = imagePath + ".compressed." + JpegProcessor.CompressionQuality;
 			var uncompressedImagePath = imagePath + ".uncompressed." + JpegProcessor.CompressionQuality + ".bmp";
 
-			sw.Restart();
-			processor.Compress(imagePath, compressedImagePath);
-			sw.Stop();
-			Console.WriteLine("Compression: " + sw.ElapsedMilliseconds);
+			// sw.Restart();
+			// processor.Compress(imagePath, compressedImagePath);
+			// sw.Stop();
+			// Console.WriteLine("Compression: " + sw.ElapsedMilliseconds);
 
 			sw.Restart();
 			processor.Uncompress(compressedImagePath, uncompressedImagePath);

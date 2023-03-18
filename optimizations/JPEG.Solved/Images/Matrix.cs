@@ -2,6 +2,7 @@
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.Runtime.CompilerServices;
+using System.Threading.Tasks;
 
 namespace JPEG.Solved.Images;
 
@@ -32,97 +33,87 @@ class Matrix
         var width = bmp.Width - bmp.Width % 8;
         var matrix = new Matrix(height, width);
 
-        var rectangle = new Rectangle(0, 0, bmp.Width, bmp.Height);
-        var bmpData = bmp.LockBits(rectangle, ImageLockMode.ReadOnly,
+        var rectangle = new Rectangle(0,
+            0,
+            bmp.Width,
+            bmp.Height);
+        var bmpData = bmp.LockBits(rectangle,
+            ImageLockMode.ReadOnly,
             bmp.PixelFormat);
-        var pointer = (byte*)bmpData.Scan0;
-        var matrixEnding = matrix.Height * width;
-        if (bmpData.Stride > 0)
-        {
-            var indexer = 0;
-            while (indexer != matrixEnding)
+        var start = (byte*)bmpData.Scan0;
+        var bmpStride = bmpData.Stride;
+        Parallel.For(0,
+            height,
+            (
+                int row) =>
             {
-                SetMatrixPixel(indexer);
-                indexer++;
-                pointer += 3;
-            }
-        }
-        else
-        {
-            var indexer = matrixEnding - 1;
-            while (indexer != -1)
-            {
-                SetMatrixPixel(indexer);
-                indexer--;
-                pointer += 3;
-            }
-        }
+                var rowPointer = start + bmpStride * row;
+                var column = 0;
+                while (column != width)
+                {
+                    matrix.Pixels[row, column] = new(
+                        *(rowPointer + 2),
+                        *(rowPointer + 1),
+                        *rowPointer);
+                    rowPointer += 3;
+                    column++;
+                }
+            });
 
         bmp.UnlockBits(bmpData);
 
         return matrix;
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining |
-                    MethodImplOptions.AggressiveOptimization)]
-        void SetMatrixPixel(
-            int indexer) =>
-            matrix.Pixels[indexer / width, indexer % width] =
-                new(*(pointer + 2), *(pointer + 1), *pointer);
     }
 
     public static unsafe explicit operator Bitmap(
         Matrix matrix)
     {
-        var bmp = new Bitmap(matrix.Width, matrix.Height, System.Drawing.Imaging.PixelFormat.Format24bppRgb);
-        var width = matrix.Width;
+        var matrixWidth = matrix.Width;
+        var matrixHeight = matrix.Height;
+        var bmp = new Bitmap(matrixWidth,
+            matrixHeight,
+            System.Drawing.Imaging.PixelFormat.Format24bppRgb);
+        var width = matrixWidth;
 
-        var rectangle = new Rectangle(0, 0, bmp.Width, bmp.Height);
-        var bmpData = bmp.LockBits(rectangle, ImageLockMode.ReadOnly,
+        var rectangle = new Rectangle(0,
+            0,
+            bmp.Width,
+            bmp.Height);
+        var bmpData = bmp.LockBits(rectangle,
+            ImageLockMode.ReadOnly,
             bmp.PixelFormat);
-        var pointer = (byte*)bmpData.Scan0;
-        var matrixEnding = matrix.Height * width;
-        if (bmpData.Stride > 0)
-        {
-            var indexer = 0;
-            while (indexer != matrixEnding)
+        var start = (byte*)bmpData.Scan0;
+        var bmpStride = bmpData.Stride;
+        Parallel.For(0,
+            matrixHeight,
+            (
+                int row) =>
             {
-                SetBmpPixel(indexer);
-                indexer++;
-                pointer += 3;
-            }
-        }
-        else
-        {
-            var indexer = matrixEnding - 1;
-            while (indexer != -1)
-            {
-                SetBmpPixel(indexer);
-                indexer--;
-                pointer += 3;
-            }
-        }
-
+                var rowPointer = start + bmpStride * row;
+                var column = 0;
+                while (column != width)
+                {
+                    var pixel = matrix.Pixels[row, column];
+                    *rowPointer = ToByte(pixel.B);
+                    *(rowPointer + 1) = ToByte(pixel.G);
+                    *(rowPointer + 2) = ToByte(pixel.R);
+                    rowPointer += 3;
+                    column++;
+                }
+            });
+        
         bmp.UnlockBits(bmpData);
 
         return bmp;
 
         [MethodImpl(MethodImplOptions.AggressiveInlining |
                     MethodImplOptions.AggressiveOptimization)]
-        void SetBmpPixel(
-            int indexer)
-        {
-            var pixel = matrix.Pixels[indexer / width, indexer % width];
-            *pointer = ToByte(pixel.B);
-            *(pointer + 1) = ToByte(pixel.G);
-            *(pointer + 2) = ToByte(pixel.R);
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining |
-                    MethodImplOptions.AggressiveOptimization)]
         static byte ToByte(
             float d)
         {
-            return (byte)float.Clamp(d, 0f, 255f);
+            return (byte)float.Clamp(d,
+                0f,
+                255f);
         }
     }
 }

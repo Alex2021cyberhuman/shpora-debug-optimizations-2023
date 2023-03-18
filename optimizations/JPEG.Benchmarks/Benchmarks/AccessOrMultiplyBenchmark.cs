@@ -6,7 +6,7 @@ namespace JPEG.Benchmarks.Benchmarks;
 [SimpleJob]
 public class AccessOrMultiplyBenchmark
 {
-    private const int OperationsPerInvoke = 10000;
+    private const int OperationsPerInvoke = 1000000000;
 
     private float[] results;
     private int n;
@@ -14,7 +14,8 @@ public class AccessOrMultiplyBenchmark
     [Params(100,
         1000,
         3000,
-        500000)]
+        500000,
+        10000000)]
     public int DistinctValues { get; set; }
 
     [GlobalSetup]
