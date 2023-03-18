@@ -1,4 +1,3 @@
-using BenchmarkDotNet.Running;
 using DotTraceExamplesTaskSolve.Programs;
 
 namespace DotTraceExamplesTaskSolve;

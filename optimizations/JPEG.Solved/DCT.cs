@@ -1,104 +1,200 @@
 ﻿using System;
 using System.Runtime.CompilerServices;
-using System.Threading.Tasks;
-using JPEG.Solved.Utilities;
 
 namespace JPEG.Solved;
 
 public class DCT
 {
+    private const float alphaIfUIsZero = 0.70710678118f;
+
     public static float[,] DCT2D(
         float[,] input)
     {
-        var height = input.GetLength(0);
-        var width = input.GetLength(1);
+        var height = input.GetLength(dimension: 0);
+        var width = input.GetLength(dimension: 1);
         var coeffs = new float[width, height];
 
+        var beta = Beta(height: height, width: width);
+        var piDividedByDoubleWidth = MathF.PI / (2f * width);
+        var piDividedByDoubleHeight = MathF.PI / (2f * height);
 
-        for (var u = 0; u < height; u++)
+
+        var u = 0;
+        var v = 0;
+
+        // calculate first coefficient in first row then use constant twice
+        DoDctCoefficient(input: input,
+            height: height,
+            width: width,
+            u: u,
+            v: v,
+            piDividedByDoubleWidth: piDividedByDoubleWidth,
+            piDividedByDoubleHeight: piDividedByDoubleHeight,
+            coeffs: coeffs,
+            multiplier: alphaIfUIsZero * alphaIfUIsZero * beta);
+
+        // calculate other coefficients in first row
+        for (v = 1; v < width; v++)
         {
-            for (var v = 0; v < width; v++)
-            {
-                var sum = 0f;
-                for (var y = 0; y < height; y++)
-                {
-                    for (var x = 0; x < width; x++)
-                    {
-                        sum += BasisFunction(input[x, y], u, v, x, y, height,
-                            width);
-                    }
-                }
-                //
-                // var sum = MathEx.SumByTwoVariables(0, width, 0, height, (
-                //     x,
-                //     y) => BasisFunction(input[x, y], u, v, x, y, height,
-                //     width));
+            DoDctCoefficient(input: input,
+                height: height,
+                width: width,
+                u: u,
+                v: v,
+                piDividedByDoubleWidth: piDividedByDoubleWidth,
+                piDividedByDoubleHeight: piDividedByDoubleHeight,
+                coeffs: coeffs,
+                multiplier: alphaIfUIsZero * beta);
+        }
 
-                coeffs[u, v] = sum * Beta(height, width) * Alpha(u) * Alpha(v);
+        // calculate coefficients in other rows 
+        for (u = 1; u < height; u++)
+        {
+            v = 0;
+
+            // calculate first coefficient in row
+            DoDctCoefficient(input: input,
+                height: height,
+                width: width,
+                u: u,
+                v: v,
+                piDividedByDoubleWidth: piDividedByDoubleWidth,
+                piDividedByDoubleHeight: piDividedByDoubleHeight,
+                coeffs: coeffs,
+                multiplier: alphaIfUIsZero * beta);
+
+            for (v = 1; v < width; v++)
+            {
+                DoDctCoefficient(input: input,
+                    height: height,
+                    width: width,
+                    u: u,
+                    v: v,
+                    piDividedByDoubleWidth: piDividedByDoubleWidth,
+                    piDividedByDoubleHeight: piDividedByDoubleHeight,
+                    coeffs: coeffs,
+                    multiplier: beta);
             }
         }
 
         return coeffs;
     }
 
+    private static void DoDctCoefficient(
+        float[,] input,
+        int height,
+        int width,
+        int u,
+        int v,
+        float piDividedByDoubleWidth,
+        float piDividedByDoubleHeight,
+        float[,] coeffs,
+        float multiplier)
+    {
+        var sum = 0f;
+        for (var y = 0; y < height; y++)
+        {
+            var doubleYPusOne = 2f * y + 1f;
+            for (var x = 0; x < width; x++)
+            {
+                sum += BasisFunction(a: input[x, y],
+                    u: u,
+                    v: v,
+                    doubleXPlusOne: 2f * x + 1f,
+                    doubleYPusOne: doubleYPusOne,
+                    piDividedByDoubleWidth: piDividedByDoubleWidth,
+                    piDividedByDoubleHeight: piDividedByDoubleHeight);
+            }
+        }
+
+        coeffs[u, v] = sum * multiplier;
+    }
+
     public static void IDCT2D(
         float[,] coeffs,
         float[,] output)
     {
-        var width = coeffs.GetLength(1);
-        var height = coeffs.GetLength(0);
+        var width = coeffs.GetLength(dimension: 1);
+        var height = coeffs.GetLength(dimension: 0);
+        var piDividedByDoubleWidth = MathF.PI / (2f * width);
+        var piDividedByDoubleHeight = MathF.PI / (2f * height);
+        var beta = Beta(height: height, width: width);
         for (var y = 0; y < height; y++)
         {
             for (var x = 0; x < width; x++)
             {
                 var sum = 0f;
-                for (var v = 0; v < height; v++)
+                var v = 0;
+                var u = 0;
+
+                var doubleXPlusOne = 2f * x + 1f;
+                var doubleYPusOne = 2f * y + 1f;
+                sum += BasisFunction(a: coeffs[u, v],
+                           u: u,
+                           v: v,
+                           doubleXPlusOne: doubleXPlusOne,
+                           doubleYPusOne: doubleYPusOne,
+                           piDividedByDoubleWidth: piDividedByDoubleWidth,
+                           piDividedByDoubleHeight: piDividedByDoubleHeight) *
+                       alphaIfUIsZero *
+                       alphaIfUIsZero;
+
+                for (u = 1; u < width; u++)
                 {
-                    for (var u = 0; u < width; u++)
+                    sum += BasisFunction(a: coeffs[u, v],
+                               u: u,
+                               v: v,
+                               doubleXPlusOne: doubleXPlusOne,
+                               doubleYPusOne: doubleYPusOne,
+                               piDividedByDoubleWidth: piDividedByDoubleWidth,
+                               piDividedByDoubleHeight:
+                               piDividedByDoubleHeight) *
+                           alphaIfUIsZero;
+                }
+
+                for (v = 1; v < height; v++)
+                {
+                    u = 0;
+                    sum += BasisFunction(a: coeffs[u, v],
+                               u: u,
+                               v: v,
+                               doubleXPlusOne: doubleXPlusOne,
+                               doubleYPusOne: doubleYPusOne,
+                               piDividedByDoubleWidth: piDividedByDoubleWidth,
+                               piDividedByDoubleHeight:
+                               piDividedByDoubleHeight) *
+                           alphaIfUIsZero;
+                    for (u = 1; u < width; u++)
                     {
-                        sum += BasisFunction(a: coeffs[u, v], u: u, v: v, x: x,
-                                   y: y,
-                                   height: height, width: width) *
-                               Alpha(u) *
-                               Alpha(v);
+                        sum += BasisFunction(a: coeffs[u, v],
+                            u: u,
+                            v: v,
+                            doubleXPlusOne: doubleXPlusOne,
+                            doubleYPusOne: doubleYPusOne,
+                            piDividedByDoubleWidth: piDividedByDoubleWidth,
+                            piDividedByDoubleHeight: piDividedByDoubleHeight);
                     }
                 }
-                // var sum = MathEx.SumByTwoVariables(0, width, 0, height, (
-                //         u,
-                //         v) => BasisFunction(a: coeffs[u, v], u: u, v: v, x: x,
-                //                   y: y,
-                //                   height: height, width: width) *
-                //               Alpha(u) *
-                //               Alpha(v));
 
-                output[x, y] = sum * Beta(height, width);
+                output[x, y] = sum * beta;
             }
         }
     }
 
-    [MethodImpl(MethodImplOptions.AggressiveInlining |
-                MethodImplOptions.AggressiveOptimization)]
+    [MethodImpl(methodImplOptions: MethodImplOptions.AggressiveInlining |
+                                   MethodImplOptions.AggressiveOptimization)]
     public static float BasisFunction(
         float a,
         float u,
         float v,
-        float x,
-        float y,
-        int height,
-        int width)
+        float doubleXPlusOne,
+        float doubleYPusOne,
+        float piDividedByDoubleWidth,
+        float piDividedByDoubleHeight)
     {
         return a *
-               MathF.Cos((2f * x + 1f) * u * MathF.PI / (2f * width)) *
-               MathF.Cos((2f * y + 1f) * v * MathF.PI / (2f * height));
-    }
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining |
-                MethodImplOptions.AggressiveOptimization)]
-    private static float Alpha(
-        int u)
-    {
-        const float alphaIfUIsZero = 0.70710678118f;
-        return u == 0 ? alphaIfUIsZero : 1f;
+               MathF.Cos(x: doubleXPlusOne * u * piDividedByDoubleWidth) *
+               MathF.Cos(x: doubleYPusOne * v * piDividedByDoubleHeight);
     }
 
     private static float Beta(
