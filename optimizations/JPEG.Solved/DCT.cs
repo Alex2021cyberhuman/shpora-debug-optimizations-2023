@@ -3,18 +3,19 @@ using System.Runtime.CompilerServices;
 
 namespace JPEG.Solved;
 
-public class DCT
+public partial class DCT
 {
     private const float alphaIfUIsZero = 0.70710678118f;
 
-        public static float[,] DCT2DSubsampling(
-        float[,] input)
+    public static void DCT2D(
+        float[,] input,
+        float[,] coeffs)
     {
         var height = input.GetLength(dimension: 0);
         var width = input.GetLength(dimension: 1);
-        var coeffs = new float[width, height];
 
         var beta = Beta(height: height, width: width);
+        var multiplier = beta * alphaIfUIsZero * alphaIfUIsZero;
         var piDividedByDoubleWidth = MathF.PI / (2f * width);
         var piDividedByDoubleHeight = MathF.PI / (2f * height);
 
@@ -23,134 +24,41 @@ public class DCT
         var v = 0;
 
         // calculate first coefficient in first row then use constant twice
-        DoDctCoefficient(input: input,
-            height: height,
-            width: width,
-            u: u,
-            v: v,
-            piDividedByDoubleWidth: piDividedByDoubleWidth,
-            piDividedByDoubleHeight: piDividedByDoubleHeight,
-            coeffs: coeffs,
-            multiplier: alphaIfUIsZero * alphaIfUIsZero * beta);
+        CalcCoefficient();
 
-        // calculate other coefficients in first row
+        multiplier = beta * alphaIfUIsZero;
+        // calculate other coefficients in first row and use constant once
         for (v = 1; v < width; v++)
         {
-            DoDctCoefficient(input: input,
-                height: height,
-                width: width,
-                u: u,
-                v: v,
-                piDividedByDoubleWidth: piDividedByDoubleWidth,
-                piDividedByDoubleHeight: piDividedByDoubleHeight,
-                coeffs: coeffs,
-                multiplier: alphaIfUIsZero * beta);
+            CalcCoefficient();
         }
 
         // calculate coefficients in other rows 
         for (u = 1; u < height; u++)
         {
             v = 0;
-
+            multiplier = beta * alphaIfUIsZero;
             // calculate first coefficient in row
-            DoDctCoefficient(input: input,
-                height: height,
-                width: width,
-                u: u,
-                v: v,
-                piDividedByDoubleWidth: piDividedByDoubleWidth,
-                piDividedByDoubleHeight: piDividedByDoubleHeight,
-                coeffs: coeffs,
-                multiplier: alphaIfUIsZero * beta);
+            CalcCoefficient();
 
+            multiplier = beta;
             for (v = 1; v < width; v++)
             {
-                DoDctCoefficient(input: input,
-                    height: height,
-                    width: width,
-                    u: u,
-                    v: v,
-                    piDividedByDoubleWidth: piDividedByDoubleWidth,
-                    piDividedByDoubleHeight: piDividedByDoubleHeight,
-                    coeffs: coeffs,
-                    multiplier: beta);
+                CalcCoefficient();
             }
         }
 
-        return coeffs;
-    }
-    
-    public static float[,] DCT2D(
-        float[,] input)
-    {
-        var height = input.GetLength(dimension: 0);
-        var width = input.GetLength(dimension: 1);
-        var coeffs = new float[width, height];
-
-        var beta = Beta(height: height, width: width);
-        var piDividedByDoubleWidth = MathF.PI / (2f * width);
-        var piDividedByDoubleHeight = MathF.PI / (2f * height);
-
-
-        var u = 0;
-        var v = 0;
-
-        // calculate first coefficient in first row then use constant twice
-        DoDctCoefficient(input: input,
-            height: height,
-            width: width,
-            u: u,
-            v: v,
-            piDividedByDoubleWidth: piDividedByDoubleWidth,
-            piDividedByDoubleHeight: piDividedByDoubleHeight,
-            coeffs: coeffs,
-            multiplier: alphaIfUIsZero * alphaIfUIsZero * beta);
-
-        // calculate other coefficients in first row
-        for (v = 1; v < width; v++)
+        void CalcCoefficient()
         {
-            DoDctCoefficient(input: input,
+            coeffs[u, v] = GetDctCoefficient(input: input,
                 height: height,
                 width: width,
                 u: u,
                 v: v,
                 piDividedByDoubleWidth: piDividedByDoubleWidth,
                 piDividedByDoubleHeight: piDividedByDoubleHeight,
-                coeffs: coeffs,
-                multiplier: alphaIfUIsZero * beta);
+                multiplier: multiplier);
         }
-
-        // calculate coefficients in other rows 
-        for (u = 1; u < height; u++)
-        {
-            v = 0;
-
-            // calculate first coefficient in row
-            DoDctCoefficient(input: input,
-                height: height,
-                width: width,
-                u: u,
-                v: v,
-                piDividedByDoubleWidth: piDividedByDoubleWidth,
-                piDividedByDoubleHeight: piDividedByDoubleHeight,
-                coeffs: coeffs,
-                multiplier: alphaIfUIsZero * beta);
-
-            for (v = 1; v < width; v++)
-            {
-                DoDctCoefficient(input: input,
-                    height: height,
-                    width: width,
-                    u: u,
-                    v: v,
-                    piDividedByDoubleWidth: piDividedByDoubleWidth,
-                    piDividedByDoubleHeight: piDividedByDoubleHeight,
-                    coeffs: coeffs,
-                    multiplier: beta);
-            }
-        }
-
-        return coeffs;
     }
 
 
@@ -249,7 +157,7 @@ public class DCT
     }
 
 
-    private static void DoDctCoefficient(
+    private static float GetDctCoefficient(
         float[,] input,
         int height,
         int width,
@@ -257,7 +165,6 @@ public class DCT
         int v,
         float piDividedByDoubleWidth,
         float piDividedByDoubleHeight,
-        float[,] coeffs,
         float multiplier)
     {
         var sum = 0f;
@@ -276,6 +183,6 @@ public class DCT
             }
         }
 
-        coeffs[u, v] = sum * multiplier;
+        return sum * multiplier;
     }
 }

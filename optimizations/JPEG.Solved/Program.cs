@@ -15,7 +15,7 @@ var uncompressedImagePath = imagePath +
                             ".uncompressed." +
                             BoostedJpegProcessor.CompressionQuality +
                             ".bmp";
-for (int i = 0; i < 10; i++)
+for (int i = 0; i < 100; i++)
 {
     sw.Restart();
     processor.Compress(imagePath, compressedImagePath);

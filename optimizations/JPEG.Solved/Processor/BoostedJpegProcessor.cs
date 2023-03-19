@@ -58,50 +58,69 @@ public class BoostedJpegProcessor : IJpegProcessor
                               DCTSize *
                               selectorsLength];
         var rowsOfBlocks = matrixHeight / DCTSize;
+        var quantizationMatrix = GetQuantizationMatrix(quality);
+        var processorCount = Environment.ProcessorCount;
+        var rowsPerProcessor = rowsOfBlocks / processorCount;
         Parallel.For(0,
-            rowsOfBlocks,
+            processorCount,
             body: (
-                int yIndex) =>
+                int processor) =>
             {
-                var offset = matrixWidth * DCTSize * selectorsLength * yIndex;
-                var y = yIndex * DCTSize;
-                var subMatrixY = new float[DCTSize, DCTSize];
-                var subMatrixCb = new float[DCTSize, DCTSize];
-                var subMatrixCr = new float[DCTSize, DCTSize];
+                var yIndex = processor * rowsPerProcessor;
+                var endingOfPart = (processor + 1) * rowsPerProcessor;
+                if (processor == processorCount - 1 &&
+                    rowsOfBlocks % processorCount != 0)
+                    endingOfPart += rowsOfBlocks % processorCount;
 
-                var x = 0;
-                for (; x < matrixWidth; x += DCTSize)
+                for (; yIndex != endingOfPart; yIndex++)
                 {
-                    GetSubMatrix(matrix,
-                        y,
-                        x,
-                        subMatrixY,
-                        subMatrixCb,
-                        subMatrixCr);
+                    var offset = matrixWidth *
+                                 DCTSize *
+                                 selectorsLength *
+                                 yIndex;
+                    var y = yIndex * DCTSize;
+                    var channelFrequencies = new float[DCTSize, DCTSize];
+                    var subMatrixY = new float[DCTSize, DCTSize];
+                    var subMatrixCb = new float[DCTSize, DCTSize];
+                    var subMatrixCr = new float[DCTSize, DCTSize];
 
-                    var channelFreqs = DCT.DCT2D(subMatrixY);
-                    var quantizedFreqs = Quantize(channelFreqs, quality);
-                    ZigZagScanAndWrite(quantizedFreqs,
-                        output,
-                        offset,
-                        out offset);
+                    var x = 0;
+                    for (; x < matrixWidth; x += DCTSize)
+                    {
+                        GetSubMatrix(matrix,
+                            y,
+                            x,
+                            subMatrixY,
+                            subMatrixCb,
+                            subMatrixCr);
 
-                    channelFreqs = DCT.DCT2D(subMatrixCb);
-                    quantizedFreqs = Quantize(channelFreqs, quality);
-                    ZigZagScanAndWrite(quantizedFreqs,
-                        output,
-                        offset,
-                        out offset);
+                        DCT.DCT2D(subMatrixY, channelFrequencies);
+                        var quantizedFreqs = Quantize(channelFrequencies,
+                            quantizationMatrix);
+                        ZigZagScanAndWrite(quantizedFreqs,
+                            output,
+                            offset,
+                            out offset);
 
-                    channelFreqs = DCT.DCT2D(subMatrixCr);
-                    quantizedFreqs = Quantize(channelFreqs, quality);
-                    ZigZagScanAndWrite(quantizedFreqs,
-                        output,
-                        offset,
-                        out offset);
+                        DCT.DCT2DSubsamplingForCb(subMatrixCb,
+                            channelFrequencies);
+                        quantizedFreqs = Quantize(channelFrequencies,
+                            quantizationMatrix);
+                        ZigZagScanAndWrite(quantizedFreqs,
+                            output,
+                            offset,
+                            out offset);
+
+                        DCT.DCT2DSubsamplingForCb(subMatrixCr,
+                            channelFrequencies);
+                        quantizedFreqs = Quantize(channelFrequencies,
+                            quantizationMatrix);
+                        ZigZagScanAndWrite(quantizedFreqs,
+                            output,
+                            offset,
+                            out offset);
+                    }
                 }
-
-                _ = 0;
             });
 
         var compressedBytes = HuffmanCodec.Encode(output,
@@ -354,13 +373,12 @@ public class BoostedJpegProcessor : IJpegProcessor
 
     private static byte[,] Quantize(
         float[,] channelFreqs,
-        int quality)
+        int[,] quantizationMatrix)
     {
         var height = channelFreqs.GetLength(0);
         var width = channelFreqs.GetLength(1);
         var result = new byte[height, width];
 
-        var quantizationMatrix = GetQuantizationMatrix(quality);
         for (var y = 0; y < height; y++)
         {
             for (var x = 0; x < width; x++)
@@ -401,34 +419,30 @@ public class BoostedJpegProcessor : IJpegProcessor
         if (quality < 1 || quality > 99)
             throw new ArgumentException("quality must be in [1,99] interval");
 
-        return _quantizationMatrixes.GetOrAdd(quality,
-            q =>
+        var multiplier = quality < 50 ? 5000 / quality : 200 - 2 * quality;
+
+        var result = new[,]
+        {
+            { 16, 11, 10, 16, 24, 40, 51, 61 },
+            { 12, 12, 14, 19, 26, 58, 60, 55 },
+            { 14, 13, 16, 24, 40, 57, 69, 56 },
+            { 14, 17, 22, 29, 51, 87, 80, 62 },
+            { 18, 22, 37, 56, 68, 109, 103, 77 },
+            { 24, 35, 55, 64, 81, 104, 113, 92 },
+            { 49, 64, 78, 87, 103, 121, 120, 101 },
+            { 72, 92, 95, 98, 112, 100, 103, 99 }
+        };
+
+        var resultHeight = result.GetLength(0);
+        var resultWidth = result.GetLength(1);
+        for (var y = 0; y < resultHeight; y++)
+        {
+            for (var x = 0; x < resultWidth; x++)
             {
-                var multiplier = q < 50 ? 5000 / q : 200 - 2 * q;
+                result[y, x] = (multiplier * result[y, x] + 50) / 100;
+            }
+        }
 
-                var result = new[,]
-                {
-                    { 16, 11, 10, 16, 24, 40, 51, 61 },
-                    { 12, 12, 14, 19, 26, 58, 60, 55 },
-                    { 14, 13, 16, 24, 40, 57, 69, 56 },
-                    { 14, 17, 22, 29, 51, 87, 80, 62 },
-                    { 18, 22, 37, 56, 68, 109, 103, 77 },
-                    { 24, 35, 55, 64, 81, 104, 113, 92 },
-                    { 49, 64, 78, 87, 103, 121, 120, 101 },
-                    { 72, 92, 95, 98, 112, 100, 103, 99 }
-                };
-
-                var resultHeight = result.GetLength(0);
-                var resultWidth = result.GetLength(1);
-                for (var y = 0; y < resultHeight; y++)
-                {
-                    for (var x = 0; x < resultWidth; x++)
-                    {
-                        result[y, x] = (multiplier * result[y, x] + 50) / 100;
-                    }
-                }
-
-                return result;
-            });
+        return result;
     }
 }
