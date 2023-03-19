@@ -1,22 +1,77 @@
-﻿using System;
-
-namespace JPEG.Solved;
+﻿namespace JPEG.Solved;
 
 public partial class DCT
 {
-    public static void DCT2DSubsamplingForCb(
+    public static void IDCT2DSubsamplingBy2(
+        float[,] coeffs,
+        float[,] output)
+    {
+        for (var y = 0; y < BlockSize; y++)
+        {
+            for (var x = 0; x < BlockSize; x++)
+            {
+                var sum = 0f;
+                var v = 0;
+                var u = 0;
+
+                var doubleXPlusOne = 2 * x + 1;
+                var doubleYPusOne = 2 * y + 1;
+
+                sum += BasisFunction(a: (coeffs[u, v] + coeffs[u, v] + 2) / 2f,
+                           u: u,
+                           v: v,
+                           doubleXPlusOne: doubleXPlusOne,
+                           doubleYPlusOne: doubleYPusOne) *
+                       2f *
+                       alphaIfUIsZero *
+                       alphaIfUIsZero;
+
+                for (u = 1; u < BlockSize; u++)
+                {
+                    sum += BasisFunction(
+                               a: (coeffs[u, v] + coeffs[u, v + 1]) / 2,
+                               u: u,
+                               v: v,
+                               doubleXPlusOne: doubleXPlusOne,
+                               doubleYPlusOne: doubleYPusOne) *
+                           2 *
+                           alphaIfUIsZero;
+                }
+
+                for (v = 2; v < BlockSize; v += 2)
+                {
+                    u = 0;
+                    sum += BasisFunction(
+                               a: (coeffs[u, v] + coeffs[u, v + 1]) / 2,
+                               u: u,
+                               v: v,
+                               doubleXPlusOne: doubleXPlusOne,
+                               doubleYPlusOne: doubleYPusOne) *
+                           2 *
+                           alphaIfUIsZero;
+                    for (u = 1; u < BlockSize; u++)
+                    {
+                        sum += BasisFunction(
+                                   a: (coeffs[u, v] + coeffs[u, v + 1]) / 2,
+                                   u: u,
+                                   v: v,
+                                   doubleXPlusOne: doubleXPlusOne,
+                                   doubleYPlusOne: doubleYPusOne) *
+                               2;
+                    }
+                }
+
+                output[x, y] = sum * beta;
+            }
+        }
+    }
+
+
+    public static void DCT2DSubsamplingBy2(
         float[,] input,
         float[,] coeffs)
     {
-        var height = input.GetLength(dimension: 0);
-        var width = input.GetLength(dimension: 1);
-
-        var beta = Beta(height: height, width: width);
         var multiplier = beta * alphaIfUIsZero * alphaIfUIsZero;
-        var piDividedByDoubleWidth = MathF.PI / (2f * width);
-        var piDividedByDoubleHeight = MathF.PI / (2f * height);
-
-
         var u = 0;
         var v = 0;
 
@@ -25,13 +80,13 @@ public partial class DCT
 
         multiplier = beta * alphaIfUIsZero;
         // calculate other coefficients in first row and use constant once
-        for (v = 1; v < width; v++)
+        for (v = 1; v < BlockSize; v++)
         {
             CalcCoefficient();
         }
 
         // calculate coefficients in other rows 
-        for (u = 1; u < height; u++)
+        for (u = 1; u < BlockSize; u++)
         {
             v = 0;
             multiplier = beta * alphaIfUIsZero;
@@ -39,7 +94,7 @@ public partial class DCT
             CalcCoefficient();
 
             multiplier = beta;
-            for (v = 1; v < width; v++)
+            for (v = 1; v < BlockSize; v++)
             {
                 CalcCoefficient();
             }
@@ -48,39 +103,30 @@ public partial class DCT
         void CalcCoefficient()
         {
             coeffs[u, v] = GetDctCoefficientSampledBy2(input: input,
-                height: height,
-                width: width,
                 u: u,
                 v: v,
-                piDividedByDoubleWidth: piDividedByDoubleWidth,
-                piDividedByDoubleHeight: piDividedByDoubleHeight,
                 multiplier: multiplier);
         }
     }
 
     private static float GetDctCoefficientSampledBy2(
         float[,] input,
-        int height,
-        int width,
         int u,
         int v,
-        float piDividedByDoubleWidth,
-        float piDividedByDoubleHeight,
         float multiplier)
     {
         var sum = 0f;
-        for (var y = 0; y < height; y ++)
+        for (var x = 0; x < BlockSize; x += 2)
         {
-            var doubleYPusOne = 2 * y + 1;
-            for (var x = 0; x < width; x += 2)
+            var doubleXPlusOne = 2 * x + 1;
+            for (var y = 0; y < BlockSize; y++)
             {
-                sum += BasisFunction(a: (input[x, y] + input[x + 1, y]) / 2f,
-                    u: u,
-                    v: v,
-                    doubleXPlusOne: 2 * x + 1,
-                    doubleYPusOne: doubleYPusOne,
-                    piDividedByDoubleWidth: piDividedByDoubleWidth,
-                    piDividedByDoubleHeight: piDividedByDoubleHeight);
+                sum += BasisFunction(a: (input[x, y] + input[x + 1, y]) / 2,
+                           u: u,
+                           v: v,
+                           doubleXPlusOne: doubleXPlusOne,
+                           doubleYPlusOne: 2 * y + 1) *
+                       2;
             }
         }
 

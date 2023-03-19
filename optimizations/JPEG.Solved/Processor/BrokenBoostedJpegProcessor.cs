@@ -10,9 +10,9 @@ using PixelFormat = JPEG.Solved.Images.PixelFormat;
 
 namespace JPEG.Solved.Processor;
 
-public class GiperBoostedJpegProcessor : IJpegProcessor
+public class BrokenBoostedJpegProcessor : IJpegProcessor
 {
-    public static readonly GiperBoostedJpegProcessor Init = new();
+    public static readonly BrokenBoostedJpegProcessor Init = new();
 
     public const int CompressionQuality = 70;
     private const int BlockSize = 8;
@@ -165,72 +165,86 @@ public class GiperBoostedJpegProcessor : IJpegProcessor
         var imageHeight = image.Height;
         var lineBlockSize = image.Width * 3 * BlockSize;
         var rowsOfBlocks = imageHeight / BlockSize;
+        var imageQuality = image.Quality;
+        var processorCount = Environment.ProcessorCount;
+        var rowsPerProcessor = rowsOfBlocks / processorCount;
         Parallel.For(0,
-            rowsOfBlocks,
-            body: yIndex =>
+            processorCount,
+            body: processor =>
             {
-                // var yIndex = y / DCTSize;
-                var y = yIndex * BlockSize;
-                var pixelsPointer = lineBlockSize * yIndex;
-                var yChannel = new float[BlockSize, BlockSize];
-                var cbChannel = new float[BlockSize, BlockSize];
-                var crChannel = new float[BlockSize, BlockSize];
-                var calculation = new SingleComplex[BlockSize, BlockSize];
-                var columnsFftCache = new SingleComplex[BlockSize];
-                var rowsFftCache = new SingleComplex[BlockSize];
-                for (var x = 0; x < imageWidth; x += BlockSize)
+                var yIndex = processor * rowsPerProcessor;
+                var endingOfPart = (processor + 1) * rowsPerProcessor;
+                if (processor == processorCount - 1 &&
+                    rowsOfBlocks % processorCount != 0)
+                    endingOfPart += rowsOfBlocks % processorCount;
+
+                for (; yIndex != endingOfPart; yIndex++)
                 {
-                    // y channel
-                    var quantizedBytes =
-                        decode.AsSpan(pixelsPointer, PartLength);
-                    pixelsPointer += PartLength;
-                    var quantizedFreqs = ZigZagUnScan(quantizedBytes);
-                    var channelFreqs =
-                        DeQuantize(quantizedFreqs, image.Quality);
-                    FFT.InverseFft2d(channelFreqs,
-                        yChannel,
-                        calculation,
-                        BlockSize,
-                        BlockSize,
-                        columnsFftCache,
-                        rowsFftCache);
-                    ShiftMatrixValues(yChannel, 128);
+                    // var yIndex = y / DCTSize;
+                    var y = yIndex * BlockSize;
+                    var pixelsPointer = lineBlockSize * yIndex;
+                    var yChannel = new float[BlockSize, BlockSize];
+                    var cbChannel = new float[BlockSize, BlockSize];
+                    var crChannel = new float[BlockSize, BlockSize];
+                    var calculation = new SingleComplex[BlockSize, BlockSize];
+                    var columnsFftCache = new SingleComplex[BlockSize];
+                    var rowsFftCache = new SingleComplex[BlockSize];
+                    for (var x = 0; x < imageWidth; x += BlockSize)
+                    {
+                        // y channel
+                        var quantizedBytes =
+                            decode.AsSpan(pixelsPointer, PartLength);
+                        pixelsPointer += PartLength;
+                        var quantizedFreqs = ZigZagUnScan(quantizedBytes);
+                        var channelFreqs =
+                            DeQuantize(quantizedFreqs, imageQuality);
+                        FFT.InverseFft2d(channelFreqs,
+                            yChannel,
+                            calculation,
+                            BlockSize,
+                            BlockSize,
+                            columnsFftCache,
+                            rowsFftCache);
+                        ShiftMatrixValues(yChannel, 128);
 
-                    // cb channel
-                    quantizedBytes = decode.AsSpan(pixelsPointer, PartLength);
-                    pixelsPointer += PartLength;
-                    quantizedFreqs = ZigZagUnScan(quantizedBytes);
-                    channelFreqs = DeQuantize(quantizedFreqs, image.Quality);
-                    FFT.InverseFft2d(channelFreqs,
-                        cbChannel,
-                        calculation,
-                        BlockSize,
-                        BlockSize,
-                        columnsFftCache,
-                        rowsFftCache);
-                    ShiftMatrixValues(cbChannel, 128);
+                        // cb channel
+                        quantizedBytes =
+                            decode.AsSpan(pixelsPointer, PartLength);
+                        pixelsPointer += PartLength;
+                        quantizedFreqs = ZigZagUnScan(quantizedBytes);
+                        channelFreqs = DeQuantize(quantizedFreqs, imageQuality);
+                        FFT.InverseFft2d(channelFreqs,
+                            cbChannel,
+                            calculation,
+                            BlockSize,
+                            BlockSize,
+                            columnsFftCache,
+                            rowsFftCache);
+                        ShiftMatrixValues(cbChannel, 128);
 
-                    // cr channel
-                    quantizedBytes = decode.AsSpan(pixelsPointer, PartLength);
-                    pixelsPointer += PartLength;
-                    quantizedFreqs = ZigZagUnScan(quantizedBytes);
-                    channelFreqs = DeQuantize(quantizedFreqs, image.Quality);
-                    FFT.InverseFft2d(channelFreqs,
-                        crChannel,
-                        calculation,
-                        BlockSize,
-                        BlockSize,
-                        columnsFftCache,
-                        rowsFftCache);
-                    ShiftMatrixValues(crChannel, 128);
+                        // cr channel
+                        quantizedBytes =
+                            decode.AsSpan(pixelsPointer, PartLength);
+                        pixelsPointer += PartLength;
+                        quantizedFreqs = ZigZagUnScan(quantizedBytes);
+                        channelFreqs = DeQuantize(quantizedFreqs, imageQuality);
+                        FFT.InverseFft2d(channelFreqs,
+                            crChannel,
+                            calculation,
+                            BlockSize,
+                            BlockSize,
+                            columnsFftCache,
+                            rowsFftCache);
+                        ShiftMatrixValues(crChannel, 128);
 
-                    SetPixels(result,
-                        yChannel,
-                        cbChannel,
-                        crChannel,
-                        PixelFormat.YCbCr,
-                        y,
-                        x);
+                        SetPixels(result,
+                            yChannel,
+                            cbChannel,
+                            crChannel,
+                            PixelFormat.YCbCr,
+                            y,
+                            x);
+                    }
                 }
             });
 

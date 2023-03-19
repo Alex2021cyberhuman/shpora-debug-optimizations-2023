@@ -1,25 +1,26 @@
 ﻿using System;
 using System.Runtime.CompilerServices;
+using JPEG.Solved.Processor;
 
 namespace JPEG.Solved;
 
 public partial class DCT
 {
+    private const int BlockSize = BoostedJpegProcessor.BlockSize;
+
+    private const float beta = 1f / BlockSize + 1f / BlockSize;
+
+    private const float piDividedByDoubleWidth = MathF.PI / (2f * BlockSize);
+
+    private const float piDividedByDoubleHeight = MathF.PI / (2f * BlockSize);
+
     private const float alphaIfUIsZero = 0.70710678118f;
 
     public static void DCT2D(
         float[,] input,
         float[,] coeffs)
     {
-        var height = input.GetLength(dimension: 0);
-        var width = input.GetLength(dimension: 1);
-
-        var beta = Beta(height: height, width: width);
         var multiplier = beta * alphaIfUIsZero * alphaIfUIsZero;
-        var piDividedByDoubleWidth = MathF.PI / (2f * width);
-        var piDividedByDoubleHeight = MathF.PI / (2f * height);
-
-
         var u = 0;
         var v = 0;
 
@@ -28,13 +29,13 @@ public partial class DCT
 
         multiplier = beta * alphaIfUIsZero;
         // calculate other coefficients in first row and use constant once
-        for (v = 1; v < width; v++)
+        for (v = 1; v < BlockSize; v++)
         {
             CalcCoefficient();
         }
 
         // calculate coefficients in other rows 
-        for (u = 1; u < height; u++)
+        for (u = 1; u < BlockSize; u++)
         {
             v = 0;
             multiplier = beta * alphaIfUIsZero;
@@ -42,7 +43,7 @@ public partial class DCT
             CalcCoefficient();
 
             multiplier = beta;
-            for (v = 1; v < width; v++)
+            for (v = 1; v < BlockSize; v++)
             {
                 CalcCoefficient();
             }
@@ -51,12 +52,8 @@ public partial class DCT
         void CalcCoefficient()
         {
             coeffs[u, v] = GetDctCoefficient(input: input,
-                height: height,
-                width: width,
                 u: u,
                 v: v,
-                piDividedByDoubleWidth: piDividedByDoubleWidth,
-                piDividedByDoubleHeight: piDividedByDoubleHeight,
                 multiplier: multiplier);
         }
     }
@@ -66,14 +63,9 @@ public partial class DCT
         float[,] coeffs,
         float[,] output)
     {
-        var width = coeffs.GetLength(dimension: 1);
-        var height = coeffs.GetLength(dimension: 0);
-        var piDividedByDoubleWidth = MathF.PI / (2f * width);
-        var piDividedByDoubleHeight = MathF.PI / (2f * height);
-        var beta = Beta(height: height, width: width);
-        for (var y = 0; y < height; y++)
+        for (var y = 0; y < BlockSize; y++)
         {
-            for (var x = 0; x < width; x++)
+            for (var x = 0; x < BlockSize; x++)
             {
                 var sum = 0f;
                 var v = 0;
@@ -85,46 +77,36 @@ public partial class DCT
                            u: u,
                            v: v,
                            doubleXPlusOne: doubleXPlusOne,
-                           doubleYPusOne: doubleYPusOne,
-                           piDividedByDoubleWidth: piDividedByDoubleWidth,
-                           piDividedByDoubleHeight: piDividedByDoubleHeight) *
+                           doubleYPlusOne: doubleYPusOne) *
                        alphaIfUIsZero *
                        alphaIfUIsZero;
 
-                for (u = 1; u < width; u++)
+                for (u = 1; u < BlockSize; u++)
                 {
                     sum += BasisFunction(a: coeffs[u, v],
                                u: u,
                                v: v,
                                doubleXPlusOne: doubleXPlusOne,
-                               doubleYPusOne: doubleYPusOne,
-                               piDividedByDoubleWidth: piDividedByDoubleWidth,
-                               piDividedByDoubleHeight:
-                               piDividedByDoubleHeight) *
+                               doubleYPlusOne: doubleYPusOne) *
                            alphaIfUIsZero;
                 }
 
-                for (v = 1; v < height; v++)
+                for (v = 1; v < BlockSize; v++)
                 {
                     u = 0;
                     sum += BasisFunction(a: coeffs[u, v],
                                u: u,
                                v: v,
                                doubleXPlusOne: doubleXPlusOne,
-                               doubleYPusOne: doubleYPusOne,
-                               piDividedByDoubleWidth: piDividedByDoubleWidth,
-                               piDividedByDoubleHeight:
-                               piDividedByDoubleHeight) *
+                               doubleYPlusOne: doubleYPusOne) *
                            alphaIfUIsZero;
-                    for (u = 1; u < width; u++)
+                    for (u = 1; u < BlockSize; u++)
                     {
                         sum += BasisFunction(a: coeffs[u, v],
                             u: u,
                             v: v,
                             doubleXPlusOne: doubleXPlusOne,
-                            doubleYPusOne: doubleYPusOne,
-                            piDividedByDoubleWidth: piDividedByDoubleWidth,
-                            piDividedByDoubleHeight: piDividedByDoubleHeight);
+                            doubleYPlusOne: doubleYPusOne);
                     }
                 }
 
@@ -140,46 +122,30 @@ public partial class DCT
         int u,
         int v,
         int doubleXPlusOne,
-        int doubleYPusOne,
-        float piDividedByDoubleWidth,
-        float piDividedByDoubleHeight)
+        int doubleYPlusOne)
     {
         return a *
                MathF.Cos(x: doubleXPlusOne * u * piDividedByDoubleWidth) *
-               MathF.Cos(x: doubleYPusOne * v * piDividedByDoubleHeight);
+               MathF.Cos(x: doubleYPlusOne * v * piDividedByDoubleHeight);
     }
-
-    private static float Beta(
-        int height,
-        int width)
-    {
-        return 1f / width + 1f / height;
-    }
-
 
     private static float GetDctCoefficient(
         float[,] input,
-        int height,
-        int width,
         int u,
         int v,
-        float piDividedByDoubleWidth,
-        float piDividedByDoubleHeight,
         float multiplier)
     {
         var sum = 0f;
-        for (var y = 0; y < height; y++)
+        for (var x = 0; x < BlockSize; x++)
         {
-            var doubleYPusOne = 2 * y + 1;
-            for (var x = 0; x < width; x++)
+            var doubleXPlusOne = 2 * x + 1;
+            for (var y = 0; y < BlockSize; y++)
             {
                 sum += BasisFunction(a: input[x, y],
                     u: u,
                     v: v,
-                    doubleXPlusOne: 2 * x + 1,
-                    doubleYPusOne: doubleYPusOne,
-                    piDividedByDoubleWidth: piDividedByDoubleWidth,
-                    piDividedByDoubleHeight: piDividedByDoubleHeight);
+                    doubleXPlusOne: doubleXPlusOne,
+                    doubleYPlusOne: 2 * y + 1);
             }
         }
 

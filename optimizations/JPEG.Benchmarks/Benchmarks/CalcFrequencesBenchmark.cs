@@ -1,5 +1,4 @@
 ﻿using BenchmarkDotNet.Attributes;
-using JPEG.Solved;
 
 namespace JPEG.Benchmarks.Benchmarks;
 

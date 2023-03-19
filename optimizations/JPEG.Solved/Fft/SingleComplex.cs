@@ -6,11 +6,9 @@ public readonly record struct SingleComplex(
     float Real,
     float Imaginary)
 {
-    public string ToString(
-        string format,
-        IFormatProvider formatProvider)
+    public override string ToString()
     {
-        return $"{Real} {(Imaginary < 0 ? '-' : '+')} {Imaginary}i";
+        return $"{Real} {(Imaginary < 0 ? '-' : '+')} {float.Abs(Imaginary)}i";
     }
 
     public float Magnitude => MathF.Sqrt(Real * Real + Imaginary * Imaginary);
