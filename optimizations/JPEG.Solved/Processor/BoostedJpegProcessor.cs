@@ -2,6 +2,7 @@ using System;
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.IO;
+using System.Linq;
 using System.Threading.Tasks;
 using JPEG.Processor;
 using JPEG.Solved.Images;
@@ -51,70 +52,54 @@ public class BoostedJpegProcessor : IJpegProcessor
                               selectorsLength];
         var rowsOfBlocks = matrixHeight / BlockSize;
         var quantizationMatrix = GetQuantizationMatrix(quality);
-        var processorCount = ProgramConstants.ProcessorCount;
-        var rowsPerProcessor = rowsOfBlocks / processorCount;
-        Parallel.For(0,
-            processorCount,
-            body: processor =>
+        Parallel.For(fromInclusive: 0,
+            toExclusive: rowsOfBlocks,
+            body: yIndex =>
             {
                 var channelFrequencies = new float[BlockSize, BlockSize];
                 var subMatrixY = new float[BlockSize, BlockSize];
                 var subMatrixCb = new float[BlockSize, BlockSize];
                 var subMatrixCr = new float[BlockSize, BlockSize];
                 var quantizedFreqs = new byte[BlockSize, BlockSize];
-                var yIndex = processor * rowsPerProcessor;
-                var endingOfPart = (processor + 1) * rowsPerProcessor;
-                if (processor == processorCount - 1 &&
-                    rowsOfBlocks % processorCount != 0)
-                    endingOfPart += rowsOfBlocks % processorCount;
+                var offset = matrixWidth * BlockSize * selectorsLength * yIndex;
+                var y = yIndex * BlockSize;
 
-                for (; yIndex != endingOfPart; yIndex++)
+                var x = 0;
+                for (; x < matrixWidth; x += BlockSize)
                 {
-                    var offset = matrixWidth *
-                                 BlockSize *
-                                 selectorsLength *
-                                 yIndex;
-                    var y = yIndex * BlockSize;
+                    GetSubMatrix(matrix,
+                        y,
+                        x,
+                        subMatrixY,
+                        subMatrixCb,
+                        subMatrixCr);
 
-                    var x = 0;
-                    for (; x < matrixWidth; x += BlockSize)
-                    {
-                        GetSubMatrix(matrix,
-                            y,
-                            x,
-                            subMatrixY,
-                            subMatrixCb,
-                            subMatrixCr);
+                    DCT.DCT2D(subMatrixY, channelFrequencies);
+                    Quantize(channelFrequencies,
+                        quantizationMatrix,
+                        quantizedFreqs);
+                    ZigZagScanAndWrite(quantizedFreqs,
+                        output,
+                        offset,
+                        out offset);
 
-                        DCT.DCT2D(subMatrixY, channelFrequencies);
-                        Quantize(channelFrequencies,
-                            quantizationMatrix,
-                            quantizedFreqs);
-                        ZigZagScanAndWrite(quantizedFreqs,
-                            output,
-                            offset,
-                            out offset);
+                    DCT.DCT2DSubsamplingBy2(subMatrixCb, channelFrequencies);
+                    Quantize(channelFrequencies,
+                        quantizationMatrix,
+                        quantizedFreqs);
+                    ZigZagScanAndWrite(quantizedFreqs,
+                        output,
+                        offset,
+                        out offset);
 
-                        DCT.DCT2D(subMatrixCb,
-                            channelFrequencies);
-                        Quantize(channelFrequencies,
-                            quantizationMatrix,
-                            quantizedFreqs);
-                        ZigZagScanAndWrite(quantizedFreqs,
-                            output,
-                            offset,
-                            out offset);
-
-                        DCT.DCT2D(subMatrixCr,
-                            channelFrequencies);
-                        Quantize(channelFrequencies,
-                            quantizationMatrix,
-                            quantizedFreqs);
-                        ZigZagScanAndWrite(quantizedFreqs,
-                            output,
-                            offset,
-                            out offset);
-                    }
+                    DCT.DCT2DSubsamplingBy2(subMatrixCr, channelFrequencies);
+                    Quantize(channelFrequencies,
+                        quantizationMatrix,
+                        quantizedFreqs);
+                    ZigZagScanAndWrite(quantizedFreqs,
+                        output,
+                        offset,
+                        out offset);
                 }
             });
 
@@ -193,6 +178,66 @@ public class BoostedJpegProcessor : IJpegProcessor
                         xOffset: x);
                 }
             });
+        // var processorCount = ProgramConstants.ProcessorCount;
+        // var rowsPerProcessor = rowsOfBlocks / processorCount;
+        // Parallel.For(0,
+        //     processorCount,
+        //     body: processor =>
+        //     {
+        //         var yIndex = processor * rowsPerProcessor;
+        //         var endingOfPart = (processor + 1) * rowsPerProcessor;
+        //         if (processor == processorCount - 1 &&
+        //             rowsOfBlocks % processorCount != 0)
+        //             endingOfPart += rowsOfBlocks % processorCount;
+        //
+        //         var yChannel = new float[BlockSize, BlockSize];
+        //         var cbChannel = new float[BlockSize, BlockSize];
+        //         var crChannel = new float[BlockSize, BlockSize];
+        //         var channelFreqs = new float[BlockSize, BlockSize];
+        //         var quantizedFreqs = new byte[BlockSize, BlockSize];
+        //
+        //         for (; yIndex != endingOfPart; yIndex++)
+        //         {
+        //             var y = yIndex * BlockSize;
+        //             var pointer = lineBlockSize * yIndex;
+        //             for (var x = 0; x < imageWidth; x += BlockSize)
+        //             {
+        //                 var quantizedBytes = decode.AsSpan(pointer, PartLength);
+        //                 pointer += PartLength;
+        //                 ZigZagUnScan(quantizedBytes, quantizedFreqs);
+        //                 DeQuantize(quantizedFreqs,
+        //                     channelFreqs,
+        //                     quantizationMatrix);
+        //                 DCT.IDCT2D(channelFreqs, yChannel);
+        //                 ShiftMatrixValues(yChannel, 128);
+        //
+        //                 quantizedBytes = decode.AsSpan(pointer, PartLength);
+        //                 pointer += PartLength;
+        //                 ZigZagUnScan(quantizedBytes, quantizedFreqs);
+        //                 DeQuantize(quantizedFreqs,
+        //                     channelFreqs,
+        //                     quantizationMatrix);
+        //                 DCT.IDCT2DSubsamplingBy2(channelFreqs, cbChannel);
+        //                 ShiftMatrixValues(cbChannel, 128);
+        //
+        //                 quantizedBytes = decode.AsSpan(pointer, PartLength);
+        //                 pointer += PartLength;
+        //                 ZigZagUnScan(quantizedBytes, quantizedFreqs);
+        //                 DeQuantize(quantizedFreqs,
+        //                     channelFreqs,
+        //                     quantizationMatrix);
+        //                 DCT.IDCT2DSubsamplingBy2(channelFreqs, crChannel);
+        //                 ShiftMatrixValues(crChannel, 128);
+        //
+        //                 SetPixels(matrix: result,
+        //                     a: yChannel,
+        //                     b: cbChannel,
+        //                     c: crChannel,
+        //                     yOffset: y,
+        //                     xOffset: x);
+        //             }
+        //         }
+        //     });
 
         return result;
     }

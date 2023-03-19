@@ -17,48 +17,48 @@ public partial class DCT
                 var doubleXPlusOne = 2 * x + 1;
                 var doubleYPusOne = 2 * y + 1;
 
-                sum += BasisFunction(a: (coeffs[u, v] + coeffs[u, v + 1]) / 2,
+                sum += BasisFunction(a: (coeffs[u, v] + coeffs[u + 1, v]) / 2f,
                            u: u,
                            v: v,
                            doubleXPlusOne: doubleXPlusOne,
                            doubleYPlusOne: doubleYPusOne) *
-                       2 *
+                       2f *
                        alphaIfUIsZero *
                        alphaIfUIsZero;
 
-                for (v = 2; v < BlockSize; v += 2)
+                for (v = 1; v < BlockSize; v++)
                 {
                     sum += BasisFunction(
-                               a: (coeffs[u, v] + coeffs[u, v + 1]) / 2,
+                               a: (coeffs[u, v] + coeffs[u + 1, v]) / 2f,
                                u: u,
                                v: v,
                                doubleXPlusOne: doubleXPlusOne,
                                doubleYPlusOne: doubleYPusOne) *
-                           2 *
+                           2f *
                            alphaIfUIsZero;
                 }
 
-                for (u = 1; u < BlockSize; u++)
+                for (u = 2; u < BlockSize; u += 2)
                 {
                     v = 0;
                     sum += BasisFunction(
-                               a: (coeffs[u, v] + coeffs[u, v + 1]) / 2,
+                               a: (coeffs[u, v] + coeffs[u + 1, v]) / 2f,
                                u: u,
                                v: v,
                                doubleXPlusOne: doubleXPlusOne,
                                doubleYPlusOne: doubleYPusOne) *
-                           2 *
+                           2f *
                            alphaIfUIsZero;
 
-                    for (v = 2; v < BlockSize; v += 2)
+                    for (v = 1; v < BlockSize; v++)
                     {
                         sum += BasisFunction(
-                                   a: (coeffs[u, v] + coeffs[u, v + 1]) / 2,
+                                   a: (coeffs[u, v] + coeffs[u + 1, v]) / 2f,
                                    u: u,
                                    v: v,
                                    doubleXPlusOne: doubleXPlusOne,
                                    doubleYPlusOne: doubleYPusOne) *
-                               2;
+                               2f;
                     }
                 }
 
@@ -117,17 +117,17 @@ public partial class DCT
         float multiplier)
     {
         var sum = 0f;
-        for (var x = 0; x < BlockSize; x++)
+        for (var x = 0; x < BlockSize; x += 2)
         {
-            var doubleXPlusOne = 2 * x + 1;
-            for (var y = 0; y < BlockSize; y += 2)
+            var doubleXPlusOne = 2 * x + 2;
+            for (var y = 0; y < BlockSize; y++)
             {
-                sum += BasisFunction(a: (input[x, y] + input[x, y + 1]) / 2,
+                sum += BasisFunction(a: (input[x, y] + input[x + 1, y]) / 2f,
                            u: u,
                            v: v,
                            doubleXPlusOne: doubleXPlusOne,
                            doubleYPlusOne: 2 * y + 1) *
-                       2;
+                       2f;
             }
         }
 
