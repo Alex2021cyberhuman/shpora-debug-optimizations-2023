@@ -55,7 +55,7 @@ public class BrokenBoostedJpegProcessor : IJpegProcessor
                               selectorsLength];
         var rowsOfBlocks = matrixHeight / BlockSize;
         var quantizationMatrix = GetQuantizationMatrix(quality);
-        var processorCount = Environment.ProcessorCount;
+        var processorCount = ProgramConstants.ProcessorCount;
         var rowsPerProcessor = rowsOfBlocks / processorCount;
         Parallel.For(0,
             processorCount,
@@ -166,7 +166,7 @@ public class BrokenBoostedJpegProcessor : IJpegProcessor
         var lineBlockSize = image.Width * 3 * BlockSize;
         var rowsOfBlocks = imageHeight / BlockSize;
         var imageQuality = image.Quality;
-        var processorCount = Environment.ProcessorCount;
+        var processorCount = ProgramConstants.ProcessorCount;
         var rowsPerProcessor = rowsOfBlocks / processorCount;
         Parallel.For(0,
             processorCount,
@@ -278,8 +278,7 @@ public class BrokenBoostedJpegProcessor : IJpegProcessor
         for (var x = 0; x < width; x++)
             matrix.Pixels[yOffset + y, xOffset + x] = new(a[y, x],
                 b[y, x],
-                c[y, x],
-                format);
+                c[y, x]);
     }
 
     private static void GetSubMatrix(

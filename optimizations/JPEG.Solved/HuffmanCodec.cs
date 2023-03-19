@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using JPEG.Solved.Processor;
 using JPEG.Solved.Utilities;
 
 namespace JPEG.Solved;
@@ -108,20 +109,56 @@ public class HuffmanCodec
     private static HuffmanNode BuildHuffmanTree(
         int[] frequences)
     {
-        var nodes = GetNodes(frequences);
-
-        while (nodes.Count() > 1)
-        {
-            var firstMin = nodes.MinOrDefault(node => node.Frequency);
-            nodes = nodes.Without(firstMin);
-            var secondMin = nodes.MinOrDefault(node => node.Frequency);
-            nodes = nodes.Without(secondMin);
-            nodes = nodes.Concat(new HuffmanNode
+        // var nodes = GetNodes(frequences);
+        var nodes = Enumerable.Range(0, byte.MaxValue + 1)
+            .Select(num => new HuffmanNode
             {
-                Frequency = firstMin.Frequency + secondMin.Frequency,
-                Left = secondMin,
-                Right = firstMin
-            }.ToEnumerable());
+                Frequency = frequences[num], LeafLabel = (byte)num
+            }).Where(node => node.Frequency > 0)
+            .OrderByDescending(x => x.Frequency).ToList();
+
+        while (nodes.Count > 1)
+        {
+            var firstMin = nodes[^1];
+            nodes.RemoveAt(nodes.Count - 1);
+            var secondMin = nodes[^1];
+            nodes.RemoveAt(nodes.Count - 1);
+            var commonFrequency = firstMin.Frequency + secondMin.Frequency;
+            var right = nodes.Count - 1;
+            var left = 0;
+            var middle = 0;
+            while (left <= right)
+            {
+                middle = (left + right) / 2;
+                var frequency = nodes[middle].Frequency;
+                if (commonFrequency == frequency)
+                {
+                    break;
+                }
+
+                if (commonFrequency < frequency)
+                {
+                    left = middle + 1;
+                }
+                else
+                {
+                    right = middle - 1;
+                }
+            }
+
+            nodes.Insert(middle,
+                new()
+                {
+                    Frequency = commonFrequency,
+                    Left = secondMin,
+                    Right = firstMin
+                });
+            // nodes = nodes.Concat(new HuffmanNode
+            // {
+            //     Frequency = firstMin.Frequency + secondMin.Frequency,
+            //     Left = secondMin,
+            //     Right = firstMin
+            // }.ToEnumerable());
         }
 
         return nodes.First();
@@ -142,7 +179,7 @@ public class HuffmanCodec
     {
         var result = new int[byte.MaxValue + 1];
         var length = data.Length;
-        var processorCount = Environment.ProcessorCount;
+        var processorCount = ProgramConstants.ProcessorCount;
         var perProcessor = length / processorCount;
         Parallel.For(0,
             processorCount,

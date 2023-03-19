@@ -5,7 +5,7 @@ using JPEG.Solved.Processor;
 namespace JPEG.Benchmarks.Benchmarks;
 
 [MemoryDiagnoser]
-[SimpleJob(warmupCount: 2, iterationCount: 5)]
+[SimpleJob(warmupCount: 5, iterationCount: 20)]
 public class UncompressJpegProcessorBenchmark
 {
     private IJpegProcessor _jpegProcessor = null!;

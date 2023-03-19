@@ -1,4 +1,5 @@
 ﻿using BenchmarkDotNet.Attributes;
+using JPEG.Solved.Processor;
 
 namespace JPEG.Benchmarks.Benchmarks;
 
@@ -33,7 +34,7 @@ public class CalcFrequencesBenchmark
     public void ParallelByProcessorPartialResult()
     {
         var length = data.Length;
-        var processorCount = Environment.ProcessorCount;
+        var processorCount = ProgramConstants.ProcessorCount;
         var perProcessor = length / processorCount;
         Parallel.For(0,
             processorCount,
@@ -64,7 +65,7 @@ public class CalcFrequencesBenchmark
     public void ParallelByProcessorSearch()
     {
         const int byteMaxValue = byte.MaxValue + 1;
-        var processorCount = Environment.ProcessorCount;
+        var processorCount = ProgramConstants.ProcessorCount;
         var rowsPerProcessor = byteMaxValue / processorCount;
         Parallel.For(0,
             processorCount,

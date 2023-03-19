@@ -17,16 +17,16 @@ public partial class DCT
                 var doubleXPlusOne = 2 * x + 1;
                 var doubleYPusOne = 2 * y + 1;
 
-                sum += BasisFunction(a: (coeffs[u, v] + coeffs[u, v] + 2) / 2f,
+                sum += BasisFunction(a: (coeffs[u, v] + coeffs[u, v + 1]) / 2,
                            u: u,
                            v: v,
                            doubleXPlusOne: doubleXPlusOne,
                            doubleYPlusOne: doubleYPusOne) *
-                       2f *
+                       2 *
                        alphaIfUIsZero *
                        alphaIfUIsZero;
 
-                for (u = 1; u < BlockSize; u++)
+                for (v = 2; v < BlockSize; v += 2)
                 {
                     sum += BasisFunction(
                                a: (coeffs[u, v] + coeffs[u, v + 1]) / 2,
@@ -38,9 +38,9 @@ public partial class DCT
                            alphaIfUIsZero;
                 }
 
-                for (v = 2; v < BlockSize; v += 2)
+                for (u = 1; u < BlockSize; u++)
                 {
-                    u = 0;
+                    v = 0;
                     sum += BasisFunction(
                                a: (coeffs[u, v] + coeffs[u, v + 1]) / 2,
                                u: u,
@@ -49,7 +49,8 @@ public partial class DCT
                                doubleYPlusOne: doubleYPusOne) *
                            2 *
                            alphaIfUIsZero;
-                    for (u = 1; u < BlockSize; u++)
+
+                    for (v = 2; v < BlockSize; v += 2)
                     {
                         sum += BasisFunction(
                                    a: (coeffs[u, v] + coeffs[u, v + 1]) / 2,
@@ -116,12 +117,12 @@ public partial class DCT
         float multiplier)
     {
         var sum = 0f;
-        for (var x = 0; x < BlockSize; x += 2)
+        for (var x = 0; x < BlockSize; x++)
         {
             var doubleXPlusOne = 2 * x + 1;
-            for (var y = 0; y < BlockSize; y++)
+            for (var y = 0; y < BlockSize; y += 2)
             {
-                sum += BasisFunction(a: (input[x, y] + input[x + 1, y]) / 2,
+                sum += BasisFunction(a: (input[x, y] + input[x, y + 1]) / 2,
                            u: u,
                            v: v,
                            doubleXPlusOne: doubleXPlusOne,

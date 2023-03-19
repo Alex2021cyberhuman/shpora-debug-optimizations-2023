@@ -1,87 +1,81 @@
-﻿using System;
+﻿namespace JPEG.Solved.Images;
 
-namespace JPEG.Solved.Images;
-
-public readonly record struct Pixel
+public readonly record struct PixelYCbCr
 {
-    private const float MaxValue = byte.MaxValue;
-    public readonly PixelFormat format = PixelFormat.RGB;
+    private const float maxByteValue = byte.MaxValue + 1;
+    public readonly float Y;
+    public readonly float Cb;
+    public readonly float Cr;
 
-    private readonly byte r;
-    private readonly byte g;
-    private readonly byte b;
-
-    private readonly float y;
-    private readonly float cb;
-    private readonly float cr;
-
-    public Pixel(
-        byte firstComponent,
-        byte secondComponent,
-        byte thirdComponent)
+    public PixelYCbCr(
+        byte r,
+        byte g,
+        byte b)
     {
-        r = firstComponent;
-        g = secondComponent;
-        b = thirdComponent;
-        format = PixelFormat.RGB;
+        Y = 16.0f + (65.738f * r + 129.057f * g + 24.064f * b) / 256.0f;
+        Cb = 128.0f + (-37.945f * r - 74.494f * g + 112.439f * b) / 256.0f;
+        Cr = 128.0f + (112.439f * r - 94.154f * g - 18.285f * b) / 256.0f;
     }
 
-    public Pixel(
-        float firstComponent = 0f,
-        float secondComponent = 0f,
-        float thirdComponent = 0f,
-        PixelFormat pixelFormat = PixelFormat.RGB)
+    public PixelYCbCr(
+        float y = 0f,
+        float cb = 0f,
+        float cr = 0f)
     {
-        format = pixelFormat;
-        switch (pixelFormat)
-        {
-            case PixelFormat.RGB:
-                r = (byte)firstComponent;
-                g = (byte)secondComponent;
-                b = (byte)thirdComponent;
-                break;
-            case PixelFormat.YCbCr:
-                y = firstComponent;
-                cb = secondComponent;
-                cr = thirdComponent;
-                break;
-            default:
-                throw new ArgumentOutOfRangeException(nameof(pixelFormat),
-                    pixelFormat,
-                    null);
-        }
+        Y = y;
+        Cb = cb;
+        Cr = cr;
     }
 
-    public byte R => format == PixelFormat.RGB
-        ? r
-        : (byte)float.Clamp((298.082f * y + 408.583f * cr) / 256.0f - 222.921f,
+    public unsafe void ToRgbBytesUnsafe(
+        byte* b,
+        byte* g,
+        byte* r)
+    {
+        *r = (byte)float.Clamp(
+            (298.082f * Y + 408.583f * Cr) / 256.0f - 222.921f,
             0f,
-            MaxValue);
-
-    public byte G =>
-        format == PixelFormat.RGB
-            ? g
-            : (byte)float.Clamp(
-                (298.082f * y - 100.291f * cb - 208.120f * cr) / 256.0f +
-                135.576f,
-                0f,
-                MaxValue);
-
-    public byte B => format == PixelFormat.RGB
-        ? b
-        : (byte)float.Clamp((298.082f * y + 516.412f * cb) / 256.0f - 276.836f,
+            maxByteValue);
+        *g = (byte)float.Clamp(
+            (298.082f * Y - 100.291f * Cb - 208.120f * Cr) / 256.0f + 135.576f,
             0f,
-            MaxValue);
+            maxByteValue);
+        *b = (byte)float.Clamp(
+            (298.082f * Y + 516.412f * Cb) / 256.0f - 276.836f,
+            0f,
+            maxByteValue);
+    }
 
-    public float Y => format == PixelFormat.YCbCr
-        ? y
-        : 16.0f + (65.738f * R + 129.057f * G + 24.064f * B) / 256.0f;
-
-    public float Cb => format == PixelFormat.YCbCr
-        ? cb
-        : 128.0f + (-37.945f * R - 74.494f * G + 112.439f * B) / 256.0f;
-
-    public float Cr => format == PixelFormat.YCbCr
-        ? cr
-        : 128.0f + (112.439f * R - 94.154f * G - 18.285f * B) / 256.0f;
+    // public byte R => format == PixelFormat.RGB
+    //     ? r
+    //     : (byte)float.Clamp((298.082f * y + 408.583f * cr) / 256.0f - 222.921f,
+    //         0f,
+    //         MaxValue);
+    //
+    // public byte G =>
+    //     format == PixelFormat.RGB
+    //         ? g
+    //         : (byte)float.Clamp(
+    //             (298.082f * y - 100.291f * cb - 208.120f * cr) / 256.0f +
+    //             135.576f,
+    //             0f,
+    //             MaxValue);
+    //
+    // public byte B => format == PixelFormat.RGB
+    //     ? b
+    //     : (byte)float.Clamp((298.082f * y + 516.412f * cb) / 256.0f - 276.836f,
+    //         0f,
+    //         MaxValue);
+    //
+    // public float Y => format == PixelFormat.YCbCr
+    //     ? y
+    //     : 16.0f + (65.738f * R + 129.057f * G + 24.064f * B) / 256.0f;
+    //
+    // public float Cb => format == PixelFormat.YCbCr
+    //     ? cb
+    //     : 128.0f + (-37.945f * R - 74.494f * G + 112.439f * B) / 256.0f;
+    //
+    // public float Cr => format == PixelFormat.YCbCr
+    //     ? cr
+    //     : 128.0f + (112.439f * R - 94.154f * G - 18.285f * B) / 256.0f;
 }

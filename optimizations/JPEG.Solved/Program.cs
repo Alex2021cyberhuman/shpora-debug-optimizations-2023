@@ -5,6 +5,7 @@ using JPEG;
 using JPEG.Solved.Processor;
 
 Console.WriteLine(nint.Size == 8 ? "64-bit version" : "32-bit version");
+Console.WriteLine($"Processors: {ProgramConstants.ProcessorCount}");
 // var processor = BrokenBoostedJpegProcessor.Init;
 var processor = BoostedJpegProcessor.Init;
 var sw = Stopwatch.StartNew();
