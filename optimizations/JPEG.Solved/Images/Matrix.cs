@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Drawing;
 using System.Drawing.Imaging;
-using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
 
 namespace JPEG.Solved.Images;
@@ -22,15 +21,16 @@ class Matrix
         Pixels = new Pixel[height, width];
     }
 
-    public static unsafe explicit operator Matrix(
-        Bitmap bmp)
+    
+    public static unsafe Matrix LoadBitmap(
+        Bitmap bmp,
+        int blockSize)
     {
-        if (bmp.PixelFormat !=
-            System.Drawing.Imaging.PixelFormat.Format24bppRgb)
+        if (bmp.PixelFormat != System.Drawing.Imaging.PixelFormat.Format24bppRgb)
             throw new InvalidOperationException(
                 "Cannot handle PixelFormat except Format24bppRgb");
-        var height = bmp.Height - bmp.Height % 8;
-        var width = bmp.Width - bmp.Width % 8;
+        var height = bmp.Height - bmp.Height % blockSize;
+        var width = bmp.Width - bmp.Width % blockSize;
         var matrix = new Matrix(height, width);
 
         var rectangle = new Rectangle(0,
@@ -42,21 +42,29 @@ class Matrix
             bmp.PixelFormat);
         var start = (byte*)bmpData.Scan0;
         var bmpStride = bmpData.Stride;
+        var processorCount = Environment.ProcessorCount;
+        var rowsPerProcessor = height / processorCount;
         Parallel.For(0,
-            height,
-            (
-                int row) =>
+            processorCount,
+            body: processor =>
             {
-                var rowPointer = start + bmpStride * row;
-                var column = 0;
-                while (column != width)
+                var row = processor * rowsPerProcessor;
+                var endingOfPart = (processor + 1) * rowsPerProcessor;
+                if (processor == processorCount - 1 && height % processorCount != 0)
+                    endingOfPart += height % processorCount;
+
+                for (; row != endingOfPart; row++)
                 {
-                    matrix.Pixels[row, column] = new(
-                        *(rowPointer + 2),
-                        *(rowPointer + 1),
-                        *rowPointer);
-                    rowPointer += 3;
-                    column++;
+                    var rowPointer = start + bmpStride * row;
+                    var column = 0;
+                    while (column != width)
+                    {
+                        matrix.Pixels[row, column] = new(*(rowPointer + 2),
+                            *(rowPointer + 1),
+                            *rowPointer);
+                        rowPointer += 3;
+                        column++;
+                    }
                 }
             });
 
@@ -64,17 +72,21 @@ class Matrix
 
         return matrix;
     }
+    
+    public static unsafe explicit operator Matrix(
+        Bitmap bmp)
+    {
+        return LoadBitmap(bmp, 8);
+    }
 
     public static unsafe explicit operator Bitmap(
         Matrix matrix)
     {
-        var matrixWidth = matrix.Width;
-        var matrixHeight = matrix.Height;
-        var bmp = new Bitmap(matrixWidth,
-            matrixHeight,
+        var width = matrix.Width;
+        var height = matrix.Height;
+        var bmp = new Bitmap(width,
+            height,
             System.Drawing.Imaging.PixelFormat.Format24bppRgb);
-        var width = matrixWidth;
-
         var rectangle = new Rectangle(0,
             0,
             bmp.Width,
@@ -84,36 +96,36 @@ class Matrix
             bmp.PixelFormat);
         var start = (byte*)bmpData.Scan0;
         var bmpStride = bmpData.Stride;
+        var processorCount = Environment.ProcessorCount;
+        var rowsPerProcessor = height / processorCount;
         Parallel.For(0,
-            matrixHeight,
-            (
-                int row) =>
+            processorCount,
+            body: processor =>
             {
-                var rowPointer = start + bmpStride * row;
-                var column = 0;
-                while (column != width)
+                var row = processor * rowsPerProcessor;
+                var endingOfPart = (processor + 1) * rowsPerProcessor;
+                if (processor == processorCount - 1 &&
+                    height % processorCount != 0)
+                    endingOfPart += height % processorCount;
+
+                for (; row != endingOfPart; row++)
                 {
-                    var pixel = matrix.Pixels[row, column];
-                    *rowPointer = ToByte(pixel.B);
-                    *(rowPointer + 1) = ToByte(pixel.G);
-                    *(rowPointer + 2) = ToByte(pixel.R);
-                    rowPointer += 3;
-                    column++;
+                    var rowPointer = start + bmpStride * row;
+                    var column = 0;
+                    while (column != width)
+                    {
+                        var pixel = matrix.Pixels[row, column];
+                        *rowPointer = pixel.B;
+                        *(rowPointer + 1) = pixel.G;
+                        *(rowPointer + 2) = pixel.R;
+                        rowPointer += 3;
+                        column++;
+                    }
                 }
             });
-        
+
         bmp.UnlockBits(bmpData);
 
         return bmp;
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining |
-                    MethodImplOptions.AggressiveOptimization)]
-        static byte ToByte(
-            float d)
-        {
-            return (byte)float.Clamp(d,
-                0f,
-                255f);
-        }
     }
 }

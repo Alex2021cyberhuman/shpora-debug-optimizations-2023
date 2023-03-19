@@ -4,7 +4,8 @@ using System.Linq;
 using JPEG.Solved.Processor;
 
 Console.WriteLine(nint.Size == 8 ? "64-bit version" : "32-bit version");
-var processor = BoostedJpegProcessor.Init;
+var processor = GiperBoostedJpegProcessor.Init;
+// var processor = BoostedJpegProcessor.Init;
 var sw = Stopwatch.StartNew();
 var imagePath = args.ElementAtOrDefault(0) ??  @"sample.bmp";
 // var imageName = "Big_Black_River_Railroad_Bridge.bmp";
@@ -15,7 +16,7 @@ var uncompressedImagePath = imagePath +
                             ".uncompressed." +
                             BoostedJpegProcessor.CompressionQuality +
                             ".bmp";
-for (int i = 0; i < 1; i++)
+for (var i = 0; i < 1; i++)
 {
     sw.Restart();
     processor.Compress(imagePath, compressedImagePath);
